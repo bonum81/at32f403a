@@ -23,7 +23,7 @@ void init_led(void);
 void init_uart1(void);
 void init_dma(void);
 void uart_transmit_buffer(char* buf, int len);
-void cmd_hadler(char *argv);
+void cmd_handler(char *argv);
 
 
 __INLINE void delay_init(void)

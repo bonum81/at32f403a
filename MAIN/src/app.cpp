@@ -144,7 +144,7 @@ void uart_transmit_buffer(char* buf, int len)
 }
 
 
-void cmd_hadler(char *argv)
+void cmd_handler(char *argv)
 {
   std::string command(argv);                                                  // приведем к строке
   std::transform(command.begin(), command.end(), command.begin(), ::tolower); // приведем к нижнему регистру
@@ -159,11 +159,11 @@ void cmd_hadler(char *argv)
   {
     if (gpio_output_data_bit_read(LED_PORT, LED_PIN))
     {
-      uart_transmit_buffer("Status led=on\n", 16);
+      uart_transmit_buffer("led=on\n", 16);
     }
     else
     {
-      uart_transmit_buffer("Status led=off\n", 16);
+      uart_transmit_buffer("led=off\n", 16);
     }
     return;
   }
@@ -210,7 +210,7 @@ void USART1_IRQHandler(void)
     if (length < MAX_RX_LENGHT)                     // От переполения проверяем что длинна строки не вышла за максамально допустимую
     {
       usart1_rx_buffer[length] = 0;                 // Добавляем конец строки
-      cmd_hadler((char*)usart1_rx_buffer);         // Идем парсить и выполнять команды
+      cmd_handler((char*)usart1_rx_buffer);         // Идем парсить и выполнять команды
     }
     else
     {
