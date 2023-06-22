@@ -23,7 +23,6 @@ void init_led(void);
 void init_uart1(void);
 void init_dma(void);
 void uart_transmit_buffer(char* buf, int len);
-void string_tolower(char* buf);
 void cmd_hadler(char *argv);
 
 

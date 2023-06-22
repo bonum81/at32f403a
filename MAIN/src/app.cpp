@@ -8,7 +8,8 @@
 
 /* includes ------------------------------------------------------------------*/
 #include "app.hpp"
-#include <string.h>
+#include <string>
+#include <algorithm>
 #include <ctype.h>
 #include <stdio.h>
 
@@ -142,28 +143,20 @@ void uart_transmit_buffer(char* buf, int len)
   }
 }
 
-void string_tolower(char* buf)
-{
-  while (*buf) {
-    *buf = tolower(*buf);
-    buf++;
-  }
-}
-
 
 void cmd_hadler(char *argv)
 {
-
-  if (strstr((char*)argv, "reset"))
+  std::string command(argv);                                                  // приведем к строке
+  std::transform(command.begin(), command.end(), command.begin(), ::tolower); // приведем к нижнему регистру
+  if (command == "reset")
   {
     uart_transmit_buffer("MCU reset now..\n", 16);
     delay_ms(2000);
     NVIC_SystemReset();
     return;
   }
-  if (strstr((char*)argv, "status"))
+  if (command == "status")
   {
-    int status = 0;
     if (gpio_output_data_bit_read(LED_PORT, LED_PIN))
     {
       uart_transmit_buffer("Status led=on\n", 16);
@@ -174,13 +167,13 @@ void cmd_hadler(char *argv)
     }
     return;
   }
-  if (strstr((char*)argv, "led=on"))
+  if (command == "led=on")
   {
     gpio_bits_set(LED_PORT, LED_PIN);
     uart_transmit_buffer("Command led=on done..\n", 22);
     return;
   }
-  if (strstr((char*)argv, "led=off"))
+  if (command == "led=off")
   {
     gpio_bits_reset(LED_PORT, LED_PIN);
     uart_transmit_buffer("Command led=off done..\n", 23);
@@ -216,8 +209,7 @@ void USART1_IRQHandler(void)
 
     if (length < MAX_RX_LENGHT)                     // От переполения проверяем что длинна строки не вышла за максамально допустимую
     {
-      usart1_rx_buffer[length] = 0x0A;             // Добавляем символ перевода строки в конец
-      string_tolower((char*)usart1_rx_buffer);     // Приводим строку к нижнему регистру  
+      usart1_rx_buffer[length] = 0;                 // Добавляем конец строки
       cmd_hadler((char*)usart1_rx_buffer);         // Идем парсить и выполнять команды
     }
     else
