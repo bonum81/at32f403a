@@ -159,7 +159,7 @@ void cmd_hadler(char *argv)
     uart_transmit_buffer("MCU reset now..\n", 16);
     delay_ms(2000);
     NVIC_SystemReset();
-
+    return;
   }
   if (strstr((char*)argv, "status"))
   {
@@ -172,18 +172,19 @@ void cmd_hadler(char *argv)
     {
       uart_transmit_buffer("Status led=off\n", 16);
     }
+    return;
   }
   if (strstr((char*)argv, "led=on"))
   {
     gpio_bits_set(LED_PORT, LED_PIN);
     uart_transmit_buffer("Command led=on done..\n", 22);
-
+    return;
   }
   if (strstr((char*)argv, "led=off"))
   {
     gpio_bits_reset(LED_PORT, LED_PIN);
     uart_transmit_buffer("Command led=off done..\n", 23);
-
+    return;
   }
 
   uart_transmit_buffer("Unknown command..\n", 18);
