@@ -9,9 +9,12 @@
 /* includes ------------------------------------------------------------------*/
 #include "app.hpp"
 #include <string>
+#include <cstring>
 #include <algorithm>
 #include <ctype.h>
 #include <stdio.h>
+
+uint8_t dma_complete_tx = 0;
 
 
 int main(void)
@@ -22,10 +25,11 @@ int main(void)
   init_led();                 // Инициализация LED порта
   init_dma();                 // Инициализация DMA Channel 5 для приема UART1
 
-  uart_transmit_buffer("I'm alive again!\n", 17); // Поздароваемся
+  uart_transmit_buffer_dma("I'm alive again!\n"); // Поздароваемся
 
   while (1)
   {
+
   }    
 }
 
@@ -83,7 +87,8 @@ void init_uart1(void)
   /* Разрешим приемник */
   usart_receiver_enable(USART1, TRUE);
   /* Разрешим передачу для DMA */
-  usart_dma_receiver_enable(USART1, TRUE);  
+  usart_dma_receiver_enable(USART1, TRUE);
+  usart_dma_transmitter_enable(USART1, TRUE);  
   /* Разрешим флаг прерывания по IDLE */
   usart_interrupt_enable(USART1, USART_IDLE_INT, TRUE);
   /* Включим USART1*/
@@ -96,7 +101,31 @@ void init_uart1(void)
 void init_dma(void)
 {
   dma_init_type dma_init_struct;  
-  crm_periph_clock_enable(CRM_DMA1_PERIPH_CLOCK, TRUE);      
+  crm_periph_clock_enable(CRM_DMA1_PERIPH_CLOCK, TRUE);    
+
+  /* Сконфигурируем DMA1 Channel4 для передачи по USART1
+    Длинну и передаваемый буфер не указываем, т.к незнаем
+    заранее сколько символов нужно передать.
+    Длинна и адрес буфера указываются в передающей фукнции
+    void uart_transmit_buffer_dma(char* buf)
+   */
+  dma_reset(DMA1_CHANNEL4);
+  dma_default_para_init(&dma_init_struct);  
+  dma_init_struct.buffer_size = 0;
+  dma_init_struct.direction = DMA_DIR_MEMORY_TO_PERIPHERAL;
+  dma_init_struct.memory_data_width = DMA_MEMORY_DATA_WIDTH_BYTE;
+  dma_init_struct.memory_inc_enable = TRUE;
+  dma_init_struct.peripheral_base_addr = (uint32_t)&USART1->dt;
+  dma_init_struct.peripheral_data_width = DMA_PERIPHERAL_DATA_WIDTH_BYTE;
+  dma_init_struct.peripheral_inc_enable = FALSE;
+  dma_init_struct.priority = DMA_PRIORITY_MEDIUM;
+  dma_init_struct.loop_mode_enable = FALSE;
+  dma_init(DMA1_CHANNEL4, &dma_init_struct);
+  /* config flexible dma for usart1 tx */
+  dma_flexible_config(DMA1, FLEX_CHANNEL4, DMA_FLEXIBLE_UART1_TX);
+
+
+
   dma_reset(DMA1_CHANNEL5);
   dma_default_para_init(&dma_init_struct);  
   /* Укажем размер приемного буфера */
@@ -130,7 +159,27 @@ void init_dma(void)
   dma_channel_enable(DMA1_CHANNEL5, TRUE); 
 }
 
+uint8_t uart_transmit_buffer_dma(char* buf)
+{
+    uint32_t waiting = 0; 
+  	strcat(buf,"\r");								                  // добавляем символ конца строки
+    dma_channel_enable(DMA1_CHANNEL4, FALSE); 				// выключаем DMA
+    DMA1_CHANNEL4->maddr = (uint32_t)buf;             // адрес на строки, которую нужно передать		
+    DMA1_CHANNEL4->dtcnt = strlen(buf);				        // длина строки
+    dma_flag_clear(DMA1_FDT4_FLAG);					          // сброс флага окончания передачи
+    dma_channel_enable(DMA1_CHANNEL4, TRUE);    			// включить DMA
+    while (!dma_flag_get(DMA1_FDT4_FLAG))             // Ждем флаг окончания передачи
+    {
+      waiting++;
+      delay_ms(1);
+      if (waiting > 10)
+      {
+        return 0;                                    // Не получили флаг окончания более чем 10мс, вернем 0
+      }
+    };
 
+    return 1;
+}
 
 void uart_transmit_buffer(char* buf, int len)
 {
@@ -150,7 +199,7 @@ void cmd_handler(char *argv)
   std::transform(command.begin(), command.end(), command.begin(), ::tolower); // приведем к нижнему регистру
   if (command == "reset")
   {
-    uart_transmit_buffer("MCU reset now..\n", 16);
+    uart_transmit_buffer_dma("MCU reset now..\n");
     delay_ms(2000);
     NVIC_SystemReset();
     return;
@@ -159,28 +208,28 @@ void cmd_handler(char *argv)
   {
     if (gpio_output_data_bit_read(LED_PORT, LED_PIN))
     {
-      uart_transmit_buffer("led=on\n", 16);
+      uart_transmit_buffer_dma("led=on\n");
     }
     else
     {
-      uart_transmit_buffer("led=off\n", 16);
+      uart_transmit_buffer_dma("led=off\n");
     }
     return;
   }
   if (command == "led=on")
   {
     gpio_bits_set(LED_PORT, LED_PIN);
-    uart_transmit_buffer("Command led=on done..\n", 22);
+    uart_transmit_buffer_dma("Command led=on done..\n");
     return;
   }
   if (command == "led=off")
   {
     gpio_bits_reset(LED_PORT, LED_PIN);
-    uart_transmit_buffer("Command led=off done..\n", 23);
+    uart_transmit_buffer_dma("Command led=off done..\n");
     return;
   }
 
-  uart_transmit_buffer("Unknown command..\n", 18);
+  uart_transmit_buffer_dma("Unknown command..\n");
 }
 
 
@@ -214,7 +263,7 @@ void USART1_IRQHandler(void)
     }
     else
     {
-      uart_transmit_buffer("Overflow rx data..\n", 19);   // Переполнились, сообщим об этом
+      uart_transmit_buffer_dma("Overflow rx data..\n");         // Переполнились, сообщим об этом
     }
     usart_data_receive(USART1);                                 // Пустое чтение нужно для очистки флага IDLE
     dma_channel_enable(DMA1_CHANNEL5, FALSE);                   // Отключим канал DMA для последующей операции

@@ -5,6 +5,7 @@
 
 /* defines -------------------------------------------------------------------*/
 #define USART1_RX_BUFFER_SIZE            32
+#define USART1_TX_BUFFER_SIZE            32
 #define MAX_RX_LENGHT                    8
 
 #define LED_PIN       GPIO_PINS_15
@@ -16,13 +17,14 @@
 
 /* variables ---------------------------------------------------------------- */
 uint8_t usart1_rx_buffer[USART1_RX_BUFFER_SIZE];
-
+uint8_t usart1_tx_buffer[USART1_TX_BUFFER_SIZE];
 
 /* functions -----------------------------------------------------------------*/
 void init_led(void);
 void init_uart1(void);
 void init_dma(void);
 void uart_transmit_buffer(char* buf, int len);
+uint8_t uart_transmit_buffer_dma(char* buf);
 void cmd_handler(char *argv);
 
 
